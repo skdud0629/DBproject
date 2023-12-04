@@ -127,6 +127,7 @@ void ClassifyWords(const string& inputFileName, const string& outputFileName) {
 
     // 결과를 파일에 쓰기
     for (const auto& pair : wordCounts) {
+        if (pair.first == "")continue; //공백문자 예외처리
         for (int i = 0; i < pair.second; i++) {//중복된 단어 처리
             outFile << "(" << pair.first << "," << 1 << ")" << endl;
         }
