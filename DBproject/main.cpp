@@ -7,6 +7,9 @@
 #include <iterator>
 #include <algorithm>
 #include <numeric>
+#include <cctype>
+#include <vector>
+#include <thread>
 
 using namespace std;
 void splitFile(int threadNum, int startLine, int endLine, string filename);
@@ -94,20 +97,58 @@ void splitFile(int threadNum, int startLine, int endLine, string filename) {
     output.close();
 }
 
+// 단어를 분류하고 파일에 쓰는 함수
+void ClassifyWords(const string& inputFileName, const string& outputFileName) {
+    ifstream inFile(inputFileName, ios::in);
+    ofstream outFile(outputFileName, ios::out);
+    string word;
+    map<string, int> wordCounts;
 
-/*분할한 파일에 있는 단어를 분류하는 함수*/
+    if (!inFile.is_open() || !outFile.is_open()) {
+        cerr << "Unable to open file." << endl;
+        return;
+    }
 
+    // 단어를 읽고 카운트
+    while (inFile >> word) {
+        // 특수 문자 제거
+        word.erase(remove_if(word.begin(), word.end(), ::ispunct), word.end());
+        transform(word.begin(), word.end(), word.begin(), ::tolower); // 소문자로 변환 에??
+        ++wordCounts[word];
+    }
+
+    // 결과를 파일에 쓰기
+    for (const auto& pair : wordCounts) {
+        outFile << "(" << pair.first << "," << pair.second << ")" << endl;
+    }
+
+    inFile.close();
+    outFile.close();
+}
 
 int main() {
     string filename;
-    int ThreadNum;
+    int threadCount;
 
     cout << "filename : ";
     cin >> filename;
     cout << "total thread number" << endl;
-    cin >> ThreadNum;
+    cin >> threadCount;
+    splitFileByThread(threadCount, filename);
+    // 스레드 생성 및 실행
+    vector<thread> threads;
+    for (int i = 0; i < threadCount; ++i) {
+        string inputFileName = "./folder/_thread" + to_string(i) + ".txt";
+        string outputFileName = "./folder/_wordcount_thread" + to_string(i) + ".txt";
+        threads.emplace_back(ClassifyWords, inputFileName, outputFileName);
+    }
 
-    splitFileByThread(ThreadNum, filename);
+    // 모든 스레드가 완료될 때까지 기다림
+    for (auto& t : threads) {
+        if (t.joinable()) {
+            t.join();
+        }
+    }
 
 
     return 0;
