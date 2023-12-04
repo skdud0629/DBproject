@@ -1,0 +1,11 @@
+Andy : Hello, Bob. I'm Andy.
+Bob : Hello, Andy. Nice to meet you!
+
+Andy : Nice to meet you, too. Where are you from?
+Bob : I'm from England.
+
+Andy : Oh, England. That's cool. What places would you recommend in England?
+Bob : I would recommend Big Ben and the London Eye in London. They are really beautiful places.
+
+Andy : I really want to visit there. Thank you, Bob.
+Bob : I'm always here to help, Andy. It was nice meeting you!
