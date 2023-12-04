@@ -97,6 +97,12 @@ void splitFile(int threadNum, int startLine, int endLine, string filename) {
     output.close();
 }
 
+bool isPunct(int c) {// 사용자 정의 함수로 특수 문자를 확인합니다.
+
+    return ispunct(static_cast<unsigned char>(c));
+}
+
+
 // 단어를 분류하고 파일에 쓰는 함수
 void ClassifyWords(const string& inputFileName, const string& outputFileName) {
     ifstream inFile(inputFileName, ios::in);
@@ -112,14 +118,19 @@ void ClassifyWords(const string& inputFileName, const string& outputFileName) {
     // 단어를 읽고 카운트
     while (inFile >> word) {
         // 특수 문자 제거
-        word.erase(remove_if(word.begin(), word.end(), ::ispunct), word.end());
-        transform(word.begin(), word.end(), word.begin(), ::tolower); // 소문자로 변환 에??
+        if (!word.empty()) {
+            word.erase(remove_if(word.begin(), word.end(), isPunct), word.end());
+        }
+        transform(word.begin(), word.end(), word.begin(), ::tolower); // 소문자로 변환
         ++wordCounts[word];
     }
 
     // 결과를 파일에 쓰기
     for (const auto& pair : wordCounts) {
-        outFile << "(" << pair.first << "," << pair.second << ")" << endl;
+        for (int i = 0; i < pair.second; i++) {//중복된 단어 처리
+            outFile << "(" << pair.first << "," << 1 << ")" << endl;
+        }
+       
     }
 
     inFile.close();
