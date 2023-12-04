@@ -8,62 +8,107 @@
 #include <algorithm>
 #include <numeric>
 
+using namespace std;
+void splitFile(int threadNum, int startLine, int endLine, string filename);
+
+
 // 파일을 주어진 크기에 따라 분할하는 함수
-std::vector<std::string> SplitFileIntoParts(const std::string& filename, size_t part_size) {
-    std::ifstream file(filename);
-    std::vector<std::string> parts;
-    std::string part;
-    part.reserve(part_size);
+void SplitFileIntoParts(const string& filename, int part_size) {
+    ifstream file(filename, std::ios::binary);
+    vector<string> parts;
+
+    if (!file) {
+        cerr << "파일을 열 수 없습니다: " << filename << std::endl;
+        exit(-1);
+    }
 
     // 파일의 끝에 도달할 때까지 읽기
     while (file.good()) {
-        char buffer[part_size];
-        file.read(buffer, part_size);
-        parts.emplace_back(buffer, file.gcount());
+        vector<char> buffer(part_size);
+        file.read(buffer.data(), part_size);
+        if (file.gcount() > 0) {
+            parts.emplace_back(buffer.data(), file.gcount());
+        }
     }
 
-    return parts;
 }
 
-// Map 함수는 텍스트 조각을 입력으로 받아 단어별로 출현 횟수를 맵에 추가합니다.
-void Map(const std::string& text, std::map<std::string, int>& M) {
-    std::istringstream iss(text);
-    std::string word;
-    while (iss >> word) {
-        M[word]++;
+
+void splitFileByThread(int totalThreads, string filename) {
+    // 파일을 스레드 수에 따라 분할
+    int totalLines = 0;
+
+    ifstream input("./folder/" + filename + ".txt", ios::binary);
+    if (!input.is_open()) {
+        cout << "[ERROR] file is not open <Split::splitFileByThread>" << endl;
+        exit(-1);
+    }
+
+    string line;
+    while (getline(input, line)) {
+        totalLines++;
+    }
+
+    input.close();
+
+    int linesPerThread = totalLines / totalThreads;
+
+    for (int threadNum = 0; threadNum < totalThreads; threadNum++) {
+        int startLine = threadNum * linesPerThread;
+        int endLine = (threadNum == totalThreads - 1) ? totalLines : (threadNum + 1) * linesPerThread;
+
+        splitFile(threadNum, startLine, endLine, filename);
     }
 }
 
-// Reduce 함수는 맵을 입력으로 받아 단어와 출현 횟수의 벡터를 생성합니다.
-void Reduce(const std::map<std::string, int>& map, std::map<std::string, int>& reduced) {
-    for (const auto& kv : map) {
-        reduced[kv.first] += kv.second;
+void splitFile(int threadNum, int startLine, int endLine, string filename) {
+    ifstream input("./folder/" + filename + ".txt", ios::binary);
+    if (!input.is_open()) {
+        cout << "[ERROR] file is not open <Split::splitFile>" << endl;
+        exit(-1);
     }
+
+    string outputFileName = "./folder/_thread" + to_string(threadNum) + ".txt";
+    ofstream output(outputFileName);
+
+    if (!output.is_open()) {
+        cout << "[ERROR] file is not open <Split::splitFile>" << endl;
+        exit(-1);
+    }
+
+    string line;
+    int currentLine = 0;
+
+    while (getline(input, line)) {
+        if (currentLine >= startLine && currentLine < endLine) {
+            output << line << endl;
+        }
+        currentLine++;
+
+        if (currentLine >= endLine) {
+            break;
+        }
+    }
+
+    input.close();
+    output.close();
 }
+
+
+/*분할한 파일에 있는 단어를 분류하는 함수*/
+
 
 int main() {
-    std::string filename = "input.txt"; // 입력 파일 이름
-    size_t part_size = 1024; // 파일을 분할할 크기
+    string filename;
+    int ThreadNum;
 
-    // 파일을 분할
-    std::vector<std::string> parts = SplitFileIntoParts(filename, part_size);
+    cout << "filename : ";
+    cin >> filename;
+    cout << "total thread number" << endl;
+    cin >> ThreadNum;
 
-    // 각 부분에 대해 MapReduce 수행
-    std::vector<std::map<std::string, int>> intermediate_maps(parts.size());
-    for (size_t i = 0; i < parts.size(); ++i) {
-        Map(parts[i], intermediate_maps[i]);
-    }
+    splitFileByThread(ThreadNum, filename);
 
-    // 모든 중간 결과를 Reduce
-    std::map<std::string, int> final_result;
-    for (const auto& imap : intermediate_maps) {
-        Reduce(imap, final_result);
-    }
-
-    // 최종 결과 출력
-    for (const auto& kv : final_result) {
-        std::cout << kv.first << " -> " << kv.second << std::endl;
-    }
 
     return 0;
 }
