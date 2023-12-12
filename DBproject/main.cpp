@@ -138,7 +138,20 @@ void ClassifyWords(const string& inputFileName, const string& outputFileName) {
     outFile.close();
 }
 
+int merge(int threadNum, const string& inputFileName) {
+    string filename;
+
+
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½->ï¿½Ê¹Ý¿ï¿½ ï¿½Ú¸ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ 
+    //ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ù¿ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Â½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ï´Ù°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ 1ï¿½ï¿½ï¿½ï¿½ ï¿½É¶ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½.
+    return 0;
+}
+
 int main() {
+    clock_t full_start, full_end;
+    clock_t split_start, split_end;
+    clock_t merge_start, merge_end;
+    double duration;
     string filename;
     int threadCount;
 
@@ -149,6 +162,10 @@ int main() {
     splitFileByThread(threadCount, filename);
     // ½º·¹µå »ý¼º ¹× ½ÇÇà
     vector<thread> threads;
+
+    full_start = clock();
+    split_start = clock();
+
     for (int i = 0; i < threadCount; ++i) {
         string inputFileName = "./folder/_thread" + to_string(i) + ".txt";
         string outputFileName = "./folder/_wordcount_thread" + to_string(i) + ".txt";
@@ -161,6 +178,12 @@ int main() {
             t.join();
         }
     }
+    split_end = clock();
+
+    cout << endl;
+    duration = (double)(split_end - split_start) / CLOCKS_PER_SEC;
+    cout << "split_time : " << duration << endl;
+    cout << endl;
 
 
     return 0;
