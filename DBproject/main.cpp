@@ -10,6 +10,8 @@
 #include <cctype>
 #include <vector>
 #include <thread>
+#include <future>
+#include <queue>
 
 using namespace std;
 void splitFile(int threadNum, int startLine, int endLine, string filename);
@@ -41,6 +43,8 @@ void splitFileByThread(int totalThreads, string filename) {
     // ÆÄÀÏÀ» ½º·¹µå ¼ö¿¡ µû¶ó ºÐÇÒ
     int totalLines = 0;
 
+    cout << "splitFileBythread start" << endl;
+
     ifstream input("./folder/" + filename + ".txt", ios::binary);
     if (!input.is_open()) {
         cout << "[ERROR] file is not open <Split::splitFileByThread>" << endl;
@@ -52,6 +56,8 @@ void splitFileByThread(int totalThreads, string filename) {
         totalLines++;
     }
 
+    cout << "test totalLines : " << totalLines << endl;
+
     input.close();
 
     int linesPerThread = totalLines / totalThreads;
@@ -62,6 +68,8 @@ void splitFileByThread(int totalThreads, string filename) {
 
         splitFile(threadNum, startLine, endLine, filename);
     }
+
+    cout << "splitFileBythread end" << endl;
 }
 
 void splitFile(int threadNum, int startLine, int endLine, string filename) {
@@ -102,13 +110,13 @@ bool isPunct(int c) {// »ç¿ëÀÚ Á¤ÀÇ ÇÔ¼ö·Î Æ¯¼ö ¹®ÀÚ¸¦ È®ÀÎÇÕ´Ï´Ù.
     return ispunct(static_cast<unsigned char>(c));
 }
 
-
+/*
 // ´Ü¾î¸¦ ºÐ·ùÇÏ°í ÆÄÀÏ¿¡ ¾²´Â ÇÔ¼ö
 void ClassifyWords(const string& inputFileName, const string& outputFileName) {
     ifstream inFile(inputFileName, ios::in);
     ofstream outFile(outputFileName, ios::out);
     string word;
-    map<string, int> wordCounts;
+    map<string, vector<int>> wordCounts;
 
     if (!inFile.is_open() || !outFile.is_open()) {
         cerr << "Unable to open file." << endl;
@@ -122,30 +130,162 @@ void ClassifyWords(const string& inputFileName, const string& outputFileName) {
             word.erase(remove_if(word.begin(), word.end(), isPunct), word.end());
         }
         transform(word.begin(), word.end(), word.begin(), ::tolower); // ¼Ò¹®ÀÚ·Î º¯È¯
-        ++wordCounts[word];
+        wordCounts[word].push_back(1);
     }
 
     // °á°ú¸¦ ÆÄÀÏ¿¡ ¾²±â
     for (const auto& pair : wordCounts) {
-        if (pair.first == "")continue; //°ø¹é¹®ÀÚ ¿¹¿ÜÃ³¸®
-        for (int i = 0; i < pair.second; i++) {//Áßº¹µÈ ´Ü¾î Ã³¸®
-            outFile << "(" << pair.first << "," << 1 << ")" << endl;
+        if (pair.first == "") continue; //°ø¹é¹®ÀÚ ¿¹¿ÜÃ³¸®
+        outFile << "(" << pair.first << ", [";
+        for (int i = 0; i < pair.second.size(); i++) {
+            outFile << pair.second[i];
+            if (i < pair.second.size() - 1) {
+                outFile << ", ";
+            }
         }
-       
+        outFile << "])" << endl;
     }
 
     inFile.close();
     outFile.close();
+}*/
+
+future<void> ClassifyWordsAsync(const string& inputFileName, const string& outputFileName) {
+    return async(launch::async, [inputFileName, outputFileName] {
+        ifstream inFile(inputFileName, ios::in);
+        ofstream outFile(outputFileName, ios::out);
+        string word;
+        map<string, vector<int>> wordCounts;
+
+        if (!inFile.is_open() || !outFile.is_open()) {
+            cerr << "Unable to open file." << endl;
+            return;
+        }
+
+        while (inFile >> word) {
+            if (!word.empty()) {
+                word.erase(remove_if(word.begin(), word.end(), isPunct), word.end());
+            }
+            transform(word.begin(), word.end(), word.begin(), ::tolower);
+            wordCounts[word].push_back(1);
+        }
+
+        for (const auto& pair : wordCounts) {
+            if (pair.first == "") continue;
+            outFile << "(" << pair.first << ", [";
+            for (int i = 0; i < pair.second.size(); i++) {
+                outFile << pair.second[i];
+                if (i < pair.second.size() - 1) {
+                    outFile << ", ";
+                }
+            }
+            outFile << "])" << endl;
+        }
+
+        inFile.close();
+        outFile.close();
+        });
 }
 
+pair<string, vector<int>> parseLine(const string& line) {
+    stringstream ss(line);
+    string key;
+    vector<int> values;
+    // '(' Á¦°Å
+    getline(ss, key, ',');
+    key = key.substr(1);
+    // ',' ´ÙÀ½ÀÇ ' [' Á¦°Å
+    ss.ignore(2);
+    // ¹è¿­ ÆÄ½Ì
+    int value;
+    while (ss >> value) {
+        values.push_back(value);
+        // ',' ¶Ç´Â ']' °Ç³Ê¶Ù±â
+        ss.ignore(2);
+    }
+    return { key, values };
+}
+
+void printResult(ofstream& out, const string& key, const vector<int>& values) {
+    out << "(" << key << ", [";
+    for (size_t i = 0; i < values.size(); ++i) {
+        out << values[i];
+        if (i < values.size() - 1) {
+            out << ", ";
+        }
+    }
+    out << "])\n";
+}
+
+void merge(int threadCount) {
+    vector<ifstream> files(threadCount);
+    for (int i = 0; i < threadCount; ++i) {
+        string inputFileName = "./folder/_wordcount_thread" + to_string(i) + ".txt";
+        files[i].open(inputFileName);
+        if (!files[i]) {
+            cerr << "Cannot open file: " << inputFileName << endl;
+            return;
+        }
+    }
+
+    ofstream out("./folder/output.txt");
+    if (!out) {
+        cerr << "Cannot open file: output.txt" << endl;
+        return;
+    }
+
+    auto comp = [](pair<int, pair<string, vector<int>>> a, pair<int, pair<string, vector<int>>> b) {
+        return a.second.first > b.second.first;
+    };
+    priority_queue<pair<int, pair<string, vector<int>>>, vector<pair<int, pair<string, vector<int>>>>, decltype(comp)> pq(comp);
+
+    string line;
+    for (int i = 0; i < threadCount; ++i) {
+        if (getline(files[i], line)) {
+            pair<string, vector<int>> parsed = parseLine(line);
+            string key = parsed.first;
+            vector<int> values = parsed.second;
+            pq.push({ i, {key, values} });
+        }
+    }
+
+    while (!pq.empty()) {
+        pair<int, pair<string, vector<int>>> top = pq.top();
+        int fileIndex = top.first;
+        pair<string, vector<int>> keyValue = top.second;
+        pq.pop();
+
+        vector<int> totalValues = keyValue.second;
+        while (!pq.empty() && pq.top().second.first == keyValue.first) {
+            pair<int, pair<string, vector<int>>> nextTop = pq.top();
+            int nextFileIndex = nextTop.first;
+            pair<string, vector<int>> nextKeyValue = nextTop.second;
+            pq.pop();
+            totalValues.insert(totalValues.end(), nextKeyValue.second.begin(), nextKeyValue.second.end());
+            if (getline(files[nextFileIndex], line)) {
+                pair<string, vector<int>> parsed = parseLine(line);
+                string key = parsed.first;
+                vector<int> values = parsed.second;
+                pq.push({ nextFileIndex, {key, values} });
+            }
+        }
+
+        printResult(out, keyValue.first, totalValues);
+
+        if (getline(files[fileIndex], line)) {
+            pair<string, vector<int>> parsed = parseLine(line);
+            string key = parsed.first;
+            vector<int> values = parsed.second;
+            pq.push({ fileIndex, {key, values} });
+        }
+    }
+}
+/*
 int merge(int threadNum, const string& inputFileName) {
     string filename;
 
-
-    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½->ï¿½Ê¹Ý¿ï¿½ ï¿½Ú¸ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ 
-    //ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ù¿ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Â½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ï´Ù°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ 1ï¿½ï¿½ï¿½ï¿½ ï¿½É¶ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½.
     return 0;
-}
+}*/
 
 int main() {
     clock_t full_start, full_end;
@@ -154,18 +294,29 @@ int main() {
     double duration;
     string filename;
     int threadCount;
+    /*
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <filename> <thread count>\n";
+        return 1;
+    }
 
+    string filename = argv[1];
+    int threadCount = std::stoi(argv[2]);
+    */
+    
     cout << "filename : ";
     cin >> filename;
-    cout << "total thread number" << endl;
+    cout << "total thread number : ";
     cin >> threadCount;
+    
     splitFileByThread(threadCount, filename);
+    
     // ½º·¹µå »ý¼º ¹× ½ÇÇà
     vector<thread> threads;
 
     full_start = clock();
     split_start = clock();
-
+    /*
     for (int i = 0; i < threadCount; ++i) {
         string inputFileName = "./folder/_thread" + to_string(i) + ".txt";
         string outputFileName = "./folder/_wordcount_thread" + to_string(i) + ".txt";
@@ -177,7 +328,26 @@ int main() {
         if (t.joinable()) {
             t.join();
         }
+    }*/
+
+    vector<std::future<void>> futures;
+
+    cout << "word split start" << endl;
+
+    for (int i = 0; i < threadCount; ++i) {
+        string inputFileName = "./folder/_thread" + to_string(i) + ".txt";
+        string outputFileName = "./folder/_wordcount_thread" + to_string(i) + ".txt";
+        futures.push_back(ClassifyWordsAsync(inputFileName, outputFileName));
     }
+
+    for (auto& future : futures) {
+        future.get();
+    }
+
+    merge(threadCount);
+
+    cout << "word split end" << endl;
+
     split_end = clock();
 
     cout << endl;
@@ -185,6 +355,8 @@ int main() {
     cout << "split_time : " << duration << endl;
     cout << endl;
 
+    cin.sync();
+    cin.get();
 
     return 0;
 }
