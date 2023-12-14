@@ -280,12 +280,29 @@ void merge(int threadCount) {
         }
     }
 }
-/*
-int merge(int threadNum, const string& inputFileName) {
-    string filename;
 
-    return 0;
-}*/
+void reduce() {
+    ifstream in("./folder/output.txt");
+    if (!in) {
+        cerr << "Cannot open file: output.txt" << endl;
+        return;
+    }
+
+    ofstream out("result.txt");
+    if (!out) {
+        cerr << "Cannot open file: reduced_output.txt" << endl;
+        return;
+    }
+
+    string line;
+    while (getline(in, line)) {
+        pair<string, vector<int>> parsed = parseLine(line);
+        string key = parsed.first;
+        vector<int> values = parsed.second;
+        out << "(" << key << ", " << values.size() << ")\n";
+    }
+}
+
 
 int main() {
     clock_t full_start, full_end;
@@ -344,15 +361,35 @@ int main() {
         future.get();
     }
 
-    merge(threadCount);
-
     cout << "word split end" << endl;
 
     split_end = clock();
 
     cout << endl;
     duration = (double)(split_end - split_start) / CLOCKS_PER_SEC;
-    cout << "split_time : " << duration << endl;
+    cout << "split_time : " << duration << "s" << endl;
+    cout << endl;
+
+
+    // merge ºÎºĞ
+    cout << "merge start" << endl;
+    merge_start = clock();
+    merge(threadCount);
+    merge_end = clock();
+    cout << "merge end" << endl << endl;
+
+    duration = (double)(merge_end - merge_start) / CLOCKS_PER_SEC;
+    cout << "merge_time : " << duration << "s" << endl;
+    cout << endl;
+
+
+    cout << "reduce start" << endl;
+    reduce();
+    cout << "reduce end" << endl << endl;
+
+    full_end = clock();
+    duration = (double)(full_end - full_start) / CLOCKS_PER_SEC;
+    cout << "full_time : " << duration << "s" << endl;
     cout << endl;
 
     cin.sync();
