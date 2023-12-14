@@ -43,8 +43,6 @@ void splitFileByThread(int totalThreads, string filename) {
     // 파일을 스레드 수에 따라 분할
     int totalLines = 0;
 
-    cout << "splitFileBythread start" << endl;
-
     ifstream input("./folder/" + filename + ".txt", ios::binary);
     if (!input.is_open()) {
         cout << "[ERROR] file is not open <Split::splitFileByThread>" << endl;
@@ -56,8 +54,6 @@ void splitFileByThread(int totalThreads, string filename) {
         totalLines++;
     }
 
-    cout << "test totalLines : " << totalLines << endl;
-
     input.close();
 
     int linesPerThread = totalLines / totalThreads;
@@ -68,8 +64,6 @@ void splitFileByThread(int totalThreads, string filename) {
 
         splitFile(threadNum, startLine, endLine, filename);
     }
-
-    cout << "splitFileBythread end" << endl;
 }
 
 void splitFile(int threadNum, int startLine, int endLine, string filename) {
@@ -184,6 +178,8 @@ future<void> ClassifyWordsAsync(const string& inputFileName, const string& outpu
 
         inFile.close();
         outFile.close();
+
+        remove(inputFileName.c_str());
         });
 }
 
@@ -279,6 +275,18 @@ void merge(int threadCount) {
             pq.push({ fileIndex, {key, values} });
         }
     }
+
+    for (int i = 0; i < threadCount; ++i) {
+        files[i].close(); // 파일을 닫습니다.
+
+        string inputFileName = "./folder/_wordcount_thread" + to_string(i) + ".txt";
+        if (remove(inputFileName.c_str()) != 0) { // 파일을 삭제합니다.
+            cerr << "Error deleting file: " << inputFileName << endl;
+        }
+        else {}
+    }
+
+    out.close();
 }
 
 void reduce() {
@@ -288,7 +296,7 @@ void reduce() {
         return;
     }
 
-    ofstream out("result.txt");
+    ofstream out("./folder/result.txt");
     if (!out) {
         cerr << "Cannot open file: reduced_output.txt" << endl;
         return;
@@ -301,6 +309,9 @@ void reduce() {
         vector<int> values = parsed.second;
         out << "(" << key << ", " << values.size() << ")\n";
     }
+
+    in.close();
+    remove("./folder/output.txt");
 }
 
 
@@ -326,8 +337,12 @@ int main() {
     cout << "total thread number : ";
     cin >> threadCount;
     
+    cout << "file split start" << endl;
+
     splitFileByThread(threadCount, filename);
     
+    cout << "file split end" << endl;
+
     // 스레드 생성 및 실행
     vector<thread> threads;
 
@@ -391,9 +406,6 @@ int main() {
     duration = (double)(full_end - full_start) / CLOCKS_PER_SEC;
     cout << "full_time : " << duration << "s" << endl;
     cout << endl;
-
-    cin.sync();
-    cin.get();
 
     return 0;
     
